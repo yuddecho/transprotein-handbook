@@ -1,0 +1,147 @@
+#######################开始#############################
+登录：
+网址：http://aimedorig.natapp1.cc/transprotein/
+yuddecho@gmail.com 
+113211
+
+#######################准备初始文件#############################
+RCSB_PDB: https://www.pdbus.org/
+创建文件夹：C:\Users\11066\Desktop\恒瑞AIDD测试_20250627
+文件夹内容：
+	1. 复合物结构、复合物序列
+	1. 受体结构、受体序列
+	1. 多肽结构、多肽序列
+
+获取文件内容：
+pymol教程:http://pymol.chenzhaoqiang.com/intro/overview.html
+
+打开pymol 输入：cd C:\Users\11066\Desktop\恒瑞AIDD测试_20250627 ;pwd
+
+获取蛋白质结构：fetch 4zgm
+
+# 去除水分子、离子和小分子配体（只保留蛋白质）
+remove resn HOH  
+remove inorganic  
+remove organic &! (polymer)  
+
+# 交换A链和B链的链标识符
+alter chain A, chain="temp"
+alter chain B, chain="A"
+alter chain temp, chain="B"
+rebuild  
+
+#更改索引
+alter (Chain A),resi=str(int(resi)-21);
+sort
+alter (Chain B),resi=str(int(resi)-28);
+sort
+
+#先保存一个native_peptide
+create native_peptide, chain A
+save native.pdb, native_peptide
+save native.fasta, native_peptide
+# 删除后面6个氨基酸
+
+
+# 保存复合物结构 (PDB格式)、序列 (FASTA格式)
+save 4zgm_complex.pdb
+save 4zgm_complex.fasta
+
+# 创建并保存受体结构和序列（原A链，现B链）
+create receptor, chain B
+save receptor.pdb, receptor
+save receptor.fasta, receptor
+
+# 创建并保存多肽结构序列（原B链，现A链）
+create peptide, chain A
+save peptide.pdb, peptide
+save peptide.fasta, peptide
+
+# 清理临时对象
+delete temp
+delete receptor
+delete peptide
+delete native_peptide
+
+
+就此我们得到了所有需要的结构和序列:
+受体：B链  100AA
+需要设计的配体多肽：A链  10AA
+native_多肽：A链  16AA
+ 
+
+################################
+接下来我们进行骨架设计
+
+起始输入文件：（4zgm_complex.pdb）
+
+RFdiffusion:  B1-100/0 A1-10/6-6    2            # B11,B40,B93      (W, E, R)
+
+RFdiffusion Align and Merge  （4zgm_complex.pdb）  #RF生成的pdb文件都是没有侧链基团的，所以在进行Protein处理前要补全受体侧链基团 
+
+ProteinMPNN: A 1 2 3 4 5 6 7 8 9 10
+
+设计完蛋白我们需要对蛋白质重命名并且去除重复序列 Fasta Rename    Fasta Deduplication
+
+结构预测：ESMFold进行单体结构预测
+
+结构预测后查看设计的多肽的理化结构信息：Desity  (一般有两个参考值：native.pdb  手动值)
+Desity of Motif-RMSD (step 1)                 (native.pdb    fixed_motif.txt)
+Desity of Rg (step 2)                                (native.pdb)
+Desity of SAP Score (step 3)                     (native.pdb)
+Desity of Net Charge (step 4)                   (native.pdb)   
+Desity of Surface Polar Score (step 5)       (native.pdb)
+Desity of Global RMSD (step 6)                 (native.pdb)
+
+看完具体信息后就可以过滤掉不必要的文件，此处以motif_rmsf和plddt演示(使用手动值)
+motif_rmsd  < 3.0      plddt  > 50
+
+单体筛选完后进行复合物结构预测
+第一步：将单体的pdb结构转化成fasta文件作为准备文件  Protein 2 FASTA
+第二步：ESMFold预测复合物结构 （补充recptor.fasta文件）
+第三步：将复合物中的多肽单体拆开再次进行查看和筛选
+
+MD分子动力学模拟
+筛选后的单体来索引到复合物
+使用复合物来进行MD模拟（输入pdb和fasta文件）
+
+
+############################################################
+引申  使用GPDL-GPD进行蛋白质设计
+
+起始输入文件：（4zgm_complex.pdb）
+
+GPDL: 0,A1-10,6    0,6    A1-10   1  2   10
+
+GPD: A 1 2 3 4 5 6 7 8 9 10
+
+设计完蛋白我们需要对蛋白质重命名并且去除重复序列 Fasta Rename    Fasta Deduplication
+
+结构预测：ESMFold进行单体结构预测
+
+结构预测后查看设计的多肽的理化结构信息：Desity  (一般有两个参考值：native.pdb  手动值)
+Desity of Motif-RMSD (step 1)                 (native.pdb    fixed_motif.txt)
+Desity of Rg (step 2)                                (native.pdb)
+Desity of SAP Score (step 3)                     (native.pdb)
+Desity of Net Charge (step 4)                   (native.pdb)   
+Desity of Surface Polar Score (step 5)       (native.pdb)
+Desity of Global RMSD (step 6)                 (native.pdb)
+
+看完具体信息后就可以过滤掉不必要的文件，此处以motif_rmsf和plddt演示(使用手动值)
+motif_rmsd  < 3.0      plddt  > 50
+
+单体筛选完后进行复合物结构预测
+第一步：将单体的pdb结构转化成fasta文件作为准备文件  Protein 2 FASTA
+第二步：ESMFold预测复合物结构 （补充recptor.fasta文件）
+第三步：将复合物中的多肽单体拆开再次进行查看和筛选
+
+MD分子动力学模拟
+筛选后的单体来索引到复合物
+使用复合物来进行MD模拟（输入pdb和fasta文件）
+
+##########################完结###############################
+
+
+
+
+
